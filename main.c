@@ -18,7 +18,7 @@ int* parse_section(char *line, int *size) {
     int *arr = NULL;
     int capacity = 0;
     char *token = strtok(line, ";");
-
+    
     while (token) {
         if (*size >= capacity) {
             capacity = capacity ? capacity * 2 : 1;
@@ -82,25 +82,25 @@ void write_output(const char *filename, Graph *graph) {
 
     // Sekcja 2
     for (int i = 0; i < graph->xadj[graph->nvtxs]; i++) {
-        fprintf(out, "%d%c", graph->adjncy[i],
+        fprintf(out, "%d%c", graph->adjncy[i], 
             (i == graph->xadj[graph->nvtxs]-1) ? '\n' : ';');
     }
 
     // Sekcja 3
     for (int i = 0; i <= graph->nvtxs; i++) {
-        fprintf(out, "%d%c", graph->xadj[i],
+        fprintf(out, "%d%c", graph->xadj[i], 
             (i == graph->nvtxs) ? '\n' : ';');
     }
 
     // Sekcja 4
     for (int i = 0; i < graph->component_ptr[graph->num_components]; i++) {
-        fprintf(out, "%d%c", graph->components[i],
+        fprintf(out, "%d%c", graph->components[i], 
             (i == graph->component_ptr[graph->num_components]-1) ? '\n' : ';');
     }
 
     // Sekcja 5
     for (int i = 0; i <= graph->num_components; i++) {
-        fprintf(out, "%d%c", graph->component_ptr[i],
+        fprintf(out, "%d%c", graph->component_ptr[i], 
             (i == graph->num_components) ? '\n' : ';');
     }
 
@@ -116,16 +116,40 @@ void free_graph(Graph *graph) {
 }
 
 int main(int argc, char **argv) {
-    if (argc < 3) {
-        printf("Użycie: %s <wejście.csrrg> <wyjście.csrrg>\n", argv[0]);
+    if (argc < 2) {
+        printf("Użycie: %s <wejście.csrrg> [liczba_części]\n", argv[0]);
         return 1;
+    }
+
+    // Usuwanie starych plików
+    for (int k = 0; k < 1000; k++) {
+        char filename[100];
+        sprintf(filename, "part%d.csrrg", k);
+
+        FILE *file = fopen(filename, "r");
+        if (!file) continue;
+        fclose(file);
+        remove(filename);
+    }
+
+    int num_parts = 1;
+    if (argc >= 3) {
+        num_parts = atoi(argv[2]);
+        if (num_parts < 1) {
+            fprintf(stderr, "Błąd: liczba części musi być ≥ 1\n");
+            return 1;
+        }
     }
 
     Graph *graph = read_graph(argv[1]);
     if (!graph) return 1;
 
-    write_output(argv[2], graph);
-    free_graph(graph);
+    for (int i = 0; i < num_parts; i++) {
+        char filename[100];
+        sprintf(filename, "part%d.csrrg", i);
+        write_output(filename, graph);
+    }
 
+    free_graph(graph);
     return 0;
 }
