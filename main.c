@@ -1,20 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "graph_partion.h"
 
 #define MAX_LINE 1000000
 #define TEXT_MODE 0
 #define BINARY_MODE 1
-
-typedef struct {
-    int max_neighbors;
-    int *adjncy;
-    int *xadj;
-    int nvtxs;
-    int *components;
-    int *component_ptr;
-    int num_components;
-} Graph;
 
 // Function declarations
 int* parse_section(char *line, int *size);
@@ -285,7 +276,7 @@ void free_graph(Graph *graph) {
 }
 
 void print_usage(const char *program_name) {
-    printf("Usage: %s <input_file> [num_parts] [format]\n", program_name);
+    printf("Usage: %s <input_file> [num_parts] [error_margine] [format]\n", program_name);
     printf("  input_file: Path to input graph file (.csrrg for text, .bin for binary)\n");
     printf("  num_parts: Number of output parts to generate (default: 1)\n");
     printf("  format: Output format - 'text' or 'binary' (default: same as input)\n");
@@ -316,6 +307,7 @@ int main(int argc, char **argv) {
 
     // Parse command line arguments
     int num_parts = 1;
+    float error_margine=0;
     const char *format = NULL;
 
     if (argc >= 3) {
@@ -327,7 +319,15 @@ int main(int argc, char **argv) {
     }
 
     if (argc >= 4) {
-        format = argv[3];
+	    error_margine=atof(argv[3]);
+	    if(error_margine>100 || error_margine<0) {
+		    fprintf(stderr, "Error: Error margine must be  0<=x<=100\n");
+		    return 1;
+	    }
+    }
+
+    if (argc >= 5) {
+        format = argv[4];
         if (strcmp(format, "text") != 0 && strcmp(format, "binary") != 0) {
             fprintf(stderr, "Error: Format must be 'text' or 'binary'\n");
             return 1;
@@ -345,18 +345,54 @@ int main(int argc, char **argv) {
     Graph *graph = read_graph(argv[1]);
     if (!graph) return 1;
 
+    // Wypisanie danych grafu
+    print_graph_info(graph, "oryginalny");
+
+    // Przygotowanie do partycjonowania
+    float margine = 1.0 + (error_margine)/100; 
+    int deleted_edges;
+
+    idx_t *parts = Graph_parts(graph, num_parts, margine, &deleted_edges);
+    
+    if (parts == NULL) {
+        printf("Błąd podczas partycjonowania grafu.\n");
+        free_graph(graph);
+        return 1;
+    }
+    
+    printf("\nUsuniętych krawędzi: %d\n", deleted_edges);
+    printf("Partycje: {");
+    for(int i = 0; i < graph->nvtxs; i++) {
+        printf("%d", parts[i]);
+        if (i < graph->nvtxs - 1) printf(", ");
+    }
+    printf("}\n");
+
+    // Tworzenie nowych grafów na podstawie partycjonowania
+    Graph** New_Graphs = graph_partition(graph, parts, num_parts, margine);
+    
+    if (New_Graphs == NULL) {
+        printf("Błąd podczas tworzenia nowych grafów.\n");
+        free(parts);
+        free_graph(graph);
+        return 1;
+    }
+    
     // Generate output files
     for (int i = 0; i < num_parts; i++) {
         char filename[100];
+	print_graph_info(New_Graphs[i], "podzielony");
         if (strcmp(format, "binary") == 0) {
             sprintf(filename, "part%d.bin", i);
-            write_graph(filename, graph, "binary");
+            write_graph(filename, New_Graphs[i], "binary");
         } else {
             sprintf(filename, "part%d.csrrg", i);
-            write_graph(filename, graph, "text");
+            write_graph(filename, New_Graphs[i], "text");
+
         }
 
         printf("Generated: %s\n", filename);
+	free_graph(New_Graphs[i]);
     }
 
     free_graph(graph);
