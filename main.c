@@ -276,10 +276,12 @@ void free_graph(Graph *graph) {
 }
 
 void print_usage(const char *program_name) {
-    printf("Usage: %s <input_file> [num_parts] [error_margine] [format]\n", program_name);
+    printf("Usage: %s <input_file> [format] [num_parts] [error_margine] \n", program_name);
+    printf("  format: Output format - 'text' or 'binary' (default: same as input)\n");
     printf("  input_file: Path to input graph file (.csrrg for text, .bin for binary)\n");
     printf("  num_parts: Number of output parts to generate (default: 1)\n");
-    printf("  format: Output format - 'text' or 'binary' (default: same as input)\n");
+    printf("  error_margine \n");
+
 }
 
 int main(int argc, char **argv) {
@@ -310,24 +312,28 @@ int main(int argc, char **argv) {
     float error_margine=0;
     const char *format = NULL;
 
-    if (argc >= 3) {
-        num_parts = atoi(argv[2]);
+	num_parts = 2;
+	error_margine=10;
+	format = "text";
+
+    if (argc >= 4) {
+        num_parts = atoi(argv[3]);
         if (num_parts < 1) {
             fprintf(stderr, "Error: Number of parts must be ≥ 1\n");
             return 1;
         }
     }
 
-    if (argc >= 4) {
-	    error_margine=atof(argv[3]);
+    if (argc >= 5) {
+	    error_margine=atof(argv[4]);
 	    if(error_margine>100 || error_margine<0) {
 		    fprintf(stderr, "Error: Error margine must be  0<=x<=100\n");
 		    return 1;
 	    }
     }
 
-    if (argc >= 5) {
-        format = argv[4];
+    if (argc >= 3) {
+        format = argv[2];
         if (strcmp(format, "text") != 0 && strcmp(format, "binary") != 0) {
             fprintf(stderr, "Error: Format must be 'text' or 'binary'\n");
             return 1;
@@ -345,6 +351,13 @@ int main(int argc, char **argv) {
     Graph *graph = read_graph(argv[1]);
     if (!graph) return 1;
 
+	if (num_parts > graph->nvtxs) {
+        fprintf(stderr, "Błąd: Liczba partycji (%d) przekracza liczbę wierzchołków (%d)\n",
+               num_parts, graph->nvtxs);
+        free_graph(graph);
+        return 1;
+    }
+
     // Wypisanie danych grafu
     print_graph_info(graph, "oryginalny");
 
@@ -359,8 +372,8 @@ int main(int argc, char **argv) {
         free_graph(graph);
         return 1;
     }
-    
-    printf("\nUsuniętych krawędzi: %d\n", deleted_edges);
+
+
     printf("Partycje: {");
     for(int i = 0; i < graph->nvtxs; i++) {
         printf("%d", parts[i]);
