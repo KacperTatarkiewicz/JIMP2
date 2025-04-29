@@ -290,17 +290,21 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    // Remove old output files
+   // Remove old output files
     for (int k = 0; k < 1000; k++) {
         char filename[100];
-        sprintf(filename, "part%d.csrrg", k);
 
+        // Dla .csrrg
+        sprintf(filename, "part%d.csrrg", k);
+        if (strcmp(filename, argv[1]) == 0) continue; // Fix 2: Pomijaj input
         FILE *file = fopen(filename, "r");
         if (!file) continue;
         fclose(file);
         remove(filename);
 
+        // Dla .bin
         sprintf(filename, "part%d.bin", k);
+        if (strcmp(filename, argv[1]) == 0) continue; // Fix 2: Pomijaj input
         file = fopen(filename, "r");
         if (!file) continue;
         fclose(file);
